@@ -20,6 +20,11 @@ import androidx.compose.ui.unit.dp
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
+import android.database.ContentObserver
+import android.os.Handler
+import android.os.Looper
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 
 class MainActivity : ComponentActivity() {
 
@@ -53,13 +58,41 @@ class MainActivity : ComponentActivity() {
                     }
 
                     if (isDefaultSmsApp) {
+                        var conversations by remember { mutableStateOf<List<Conversation>>(emptyList()) }
+                        var refreshTrigger by remember { mutableStateOf(0) }
+                        
+                        DisposableEffect(this@MainActivity) {
+                            val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
+                                override fun onChange(selfChange: Boolean) {
+                                    refreshTrigger++
+                                }
+                            }
+                            contentResolver.registerContentObserver(
+                                Telephony.Sms.CONTENT_URI,
+                                true,
+                                observer
+                            )
+                            onDispose {
+                                contentResolver.unregisterContentObserver(observer)
+                            }
+                        }
+
+                        LaunchedEffect(refreshTrigger) {
+                            conversations = loadConversations(this@MainActivity)
+                        }
+
                         var currentChatAddress by rememberSaveable { mutableStateOf<String?>(null) }
                         var currentThreadId by rememberSaveable { mutableStateOf<Long?>(null) }
                         if (currentChatAddress == null || currentThreadId == null) {
-                            ConversationListScreen(context = this@MainActivity, onChatSelected = { threadId, address -> 
-                                currentThreadId = threadId
-                                currentChatAddress = address 
-                            })
+                            ConversationListScreen(
+                                context = this@MainActivity, 
+                                conversations = conversations,
+                                onChatSelected = { threadId, address -> 
+                                    currentThreadId = threadId
+                                    currentChatAddress = address 
+                                },
+                                onRefresh = { refreshTrigger++ }
+                            )
                         } else {
                             ChatScreen(context = this@MainActivity, threadId = currentThreadId!!, address = currentChatAddress!!, onBack = { 
                                 currentChatAddress = null 
