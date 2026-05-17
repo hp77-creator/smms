@@ -3,8 +3,17 @@ package com.example.androidsmsapp
 import android.content.Context
 import android.net.Uri
 import android.provider.ContactsContract
+import java.util.concurrent.ConcurrentHashMap
+
+// Global cache for phone numbers to prevent N+1 query problem
+private val contactCache = ConcurrentHashMap<String, String>()
 
 fun getContactName(context: Context, phoneNumber: String): String {
+    // Return cached name if available
+    if (contactCache.containsKey(phoneNumber)) {
+        return contactCache[phoneNumber]!!
+    }
+
     // Check if we actually have permission before querying to prevent crashes
     if (context.checkSelfPermission(android.Manifest.permission.READ_CONTACTS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
         return phoneNumber
@@ -27,6 +36,7 @@ fun getContactName(context: Context, phoneNumber: String): String {
         e.printStackTrace()
     }
     
+    contactCache[phoneNumber] = contactName
     return contactName
 }
 

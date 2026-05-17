@@ -28,11 +28,14 @@ data class Conversation(val threadId: Long, val address: String, val snippet: St
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ConversationListScreen(context: Context, onChatSelected: (Long, String) -> Unit) {
-    var conversations by remember { mutableStateOf<List<Conversation>>(emptyList()) }
+fun ConversationListScreen(
+    context: Context,
+    conversations: List<Conversation>,
+    onChatSelected: (Long, String) -> Unit,
+    onRefresh: () -> Unit = {}
+) {
     var showNewMessageDialog by remember { mutableStateOf(false) }
     var conversationToDelete by remember { mutableStateOf<Conversation?>(null) }
-    var refreshTrigger by remember { mutableStateOf(0) }
     val scope = rememberCoroutineScope()
 
     val contactPickerLauncher = rememberLauncherForActivityResult(
@@ -51,26 +54,6 @@ fun ConversationListScreen(context: Context, onChatSelected: (Long, String) -> U
                 }
             }
         }
-    }
-
-    DisposableEffect(context) {
-        val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
-            override fun onChange(selfChange: Boolean) {
-                refreshTrigger++
-            }
-        }
-        context.contentResolver.registerContentObserver(
-            Telephony.Sms.CONTENT_URI,
-            true,
-            observer
-        )
-        onDispose {
-            context.contentResolver.unregisterContentObserver(observer)
-        }
-    }
-
-    LaunchedEffect(refreshTrigger) {
-        conversations = loadConversations(context)
     }
 
     Scaffold(
@@ -152,7 +135,7 @@ fun ConversationListScreen(context: Context, onChatSelected: (Long, String) -> U
                         conversationToDelete = null
                         scope.launch {
                             deleteConversation(context, threadId)
-                            refreshTrigger++
+                            onRefresh()
                         }
                     }) {
                         Text("Delete")

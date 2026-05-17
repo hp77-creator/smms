@@ -52,3 +52,6 @@ captures/
 
 # Mac OS X
 .DS_Store
+
+# hprof files
+*.hprof
