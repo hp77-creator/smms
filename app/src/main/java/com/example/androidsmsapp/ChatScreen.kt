@@ -13,10 +13,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
 
-data class ChatMessage(val body: String, val isMe: Boolean)
+data class ChatMessage(val id: Long, val body: String, val isMe: Boolean)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -24,11 +27,14 @@ fun ChatScreen(context: Context, address: String, onBack: () -> Unit) {
     var messageText by remember { mutableStateOf("") }
     var messages by remember { mutableStateOf<List<ChatMessage>>(emptyList()) }
     var contactName by remember { mutableStateOf(address) }
+    var refreshTrigger by remember { mutableStateOf(0) }
+    var messageToDelete by remember { mutableStateOf<ChatMessage?>(null) }
     val smsManager = context.getSystemService(SmsManager::class.java)
+    val scope = rememberCoroutineScope()
 
     BackHandler { onBack() }
 
-    LaunchedEffect(address, messageText) {
+    LaunchedEffect(address, messageText, refreshTrigger) {
         messages = loadMessages(context, address)
         withContext(Dispatchers.IO) {
             contactName = getContactName(context, address)
@@ -59,10 +65,16 @@ fun ChatScreen(context: Context, address: String, onBack: () -> Unit) {
                     .padding(horizontal = 16.dp),
                 reverseLayout = true
             ) {
-                items(messages) { msg ->
+                items(messages, key = { it.id }) { msg ->
                     Text(
-                        text = (if (msg.isMe) "Me: " else "$address: ") + msg.body,
-                        modifier = Modifier.padding(vertical = 4.dp),
+                        text = (if (msg.isMe) "Me: " else "$contactName: ") + msg.body,
+                        modifier = Modifier
+                            .padding(vertical = 4.dp)
+                            .pointerInput(msg.id) {
+                                detectTapGestures(
+                                    onLongPress = { messageToDelete = msg }
+                                )
+                            },
                         color = if (msg.isMe) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
                     )
                 }
@@ -104,28 +116,63 @@ fun ChatScreen(context: Context, address: String, onBack: () -> Unit) {
                 }
             }
         }
+
+        if (messageToDelete != null) {
+            AlertDialog(
+                onDismissRequest = { messageToDelete = null },
+                title = { Text("Delete Message") },
+                text = { Text("Are you sure you want to delete this message?") },
+                confirmButton = {
+                    Button(onClick = {
+                        val msgId = messageToDelete!!.id
+                        messageToDelete = null
+                        scope.launch {
+                            deleteMessage(context, msgId)
+                            refreshTrigger++
+                        }
+                    }) {
+                        Text("Delete")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { messageToDelete = null }) {
+                        Text("Cancel")
+                    }
+                }
+            )
+        }
     }
+}
+
+suspend fun deleteMessage(context: Context, messageId: Long) = withContext(Dispatchers.IO) {
+    context.contentResolver.delete(
+        Telephony.Sms.CONTENT_URI,
+        "${Telephony.Sms._ID} = ?",
+        arrayOf(messageId.toString())
+    )
 }
 
 suspend fun loadMessages(context: Context, targetAddress: String): List<ChatMessage> = withContext(Dispatchers.IO) {
     val list = mutableListOf<ChatMessage>()
     val cursor: Cursor? = context.contentResolver.query(
         Telephony.Sms.CONTENT_URI,
-        arrayOf(Telephony.Sms.BODY, Telephony.Sms.TYPE),
+        arrayOf(Telephony.Sms._ID, Telephony.Sms.BODY, Telephony.Sms.TYPE),
         "${Telephony.Sms.ADDRESS} = ?",
         arrayOf(targetAddress),
         "${Telephony.Sms.DATE} DESC"
     )
 
     cursor?.use {
+        val idIndex = it.getColumnIndexOrThrow(Telephony.Sms._ID)
         val bodyIndex = it.getColumnIndexOrThrow(Telephony.Sms.BODY)
         val typeIndex = it.getColumnIndexOrThrow(Telephony.Sms.TYPE)
         
         while (it.moveToNext()) {
+            val id = it.getLong(idIndex)
             val body = it.getString(bodyIndex) ?: ""
             val type = it.getInt(typeIndex)
             val isMe = type == Telephony.Sms.MESSAGE_TYPE_SENT
-            list.add(ChatMessage(body, isMe))
+            list.add(ChatMessage(id, body, isMe))
         }
     }
     list
