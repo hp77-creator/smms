@@ -22,9 +22,12 @@ jobs:
         distribution: 'temurin'
         cache: gradle
 
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@v3
+      with:
+        gradle-version: '8.4'
+
     - name: Build Debug APK
-      # Since the gradlew wrapper isn't committed in your repository,
-      # we can just use the pre-installed system gradle on GitHub Actions!
       run: gradle assembleDebug
 
     - name: Create GitHub Release
