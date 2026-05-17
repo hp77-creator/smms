@@ -47,6 +47,8 @@ captures/
 # Keystore files (WARNING: Never commit your real signing keys!)
 *.jks
 *.keystore
+# Allow committing the shared debug keystore for GitHub Actions
+!app/debug.keystore
 
 # Mac OS X
 .DS_Store
