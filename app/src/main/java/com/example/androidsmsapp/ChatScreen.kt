@@ -13,6 +13,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.activity.compose.BackHandler
+import android.database.ContentObserver
+import android.os.Handler
+import android.os.Looper
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
 import kotlinx.coroutines.Dispatchers
@@ -33,6 +36,22 @@ fun ChatScreen(context: Context, address: String, onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
 
     BackHandler { onBack() }
+
+    DisposableEffect(context) {
+        val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
+            override fun onChange(selfChange: Boolean) {
+                refreshTrigger++
+            }
+        }
+        context.contentResolver.registerContentObserver(
+            Telephony.Sms.CONTENT_URI,
+            true,
+            observer
+        )
+        onDispose {
+            context.contentResolver.unregisterContentObserver(observer)
+        }
+    }
 
     LaunchedEffect(address, messageText, refreshTrigger) {
         messages = loadMessages(context, address)

@@ -12,6 +12,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -51,7 +53,7 @@ class MainActivity : ComponentActivity() {
                     }
 
                     if (isDefaultSmsApp) {
-                        var currentChatAddress by remember { mutableStateOf<String?>(null) }
+                        var currentChatAddress by rememberSaveable { mutableStateOf<String?>(null) }
                         if (currentChatAddress == null) {
                             ConversationListScreen(context = this@MainActivity, onChatSelected = { address -> 
                                 currentChatAddress = address 
