@@ -22,14 +22,10 @@ jobs:
         distribution: 'temurin'
         cache: gradle
 
-    - name: Grant execute permission for gradlew
-      run: chmod +x gradlew
-
     - name: Build Debug APK
-      # We build the Debug APK because it is automatically signed with a debug key,
-      # making it instantly installable by anyone who downloads it without needing
-      # complex Keystore configurations in GitHub Secrets.
-      run: ./gradlew assembleDebug
+      # Since the gradlew wrapper isn't committed in your repository,
+      # we can just use the pre-installed system gradle on GitHub Actions!
+      run: gradle assembleDebug
 
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v2
