@@ -54,13 +54,16 @@ class MainActivity : ComponentActivity() {
 
                     if (isDefaultSmsApp) {
                         var currentChatAddress by rememberSaveable { mutableStateOf<String?>(null) }
-                        if (currentChatAddress == null) {
-                            ConversationListScreen(context = this@MainActivity, onChatSelected = { address -> 
+                        var currentThreadId by rememberSaveable { mutableStateOf<Long?>(null) }
+                        if (currentChatAddress == null || currentThreadId == null) {
+                            ConversationListScreen(context = this@MainActivity, onChatSelected = { threadId, address -> 
+                                currentThreadId = threadId
                                 currentChatAddress = address 
                             })
                         } else {
-                            ChatScreen(context = this@MainActivity, address = currentChatAddress!!, onBack = { 
+                            ChatScreen(context = this@MainActivity, threadId = currentThreadId!!, address = currentChatAddress!!, onBack = { 
                                 currentChatAddress = null 
+                                currentThreadId = null
                             })
                         }
                     } else {

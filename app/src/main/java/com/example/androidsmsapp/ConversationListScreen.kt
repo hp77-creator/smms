@@ -25,7 +25,7 @@ data class Conversation(val threadId: Long, val address: String, val snippet: St
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ConversationListScreen(context: Context, onChatSelected: (String) -> Unit) {
+fun ConversationListScreen(context: Context, onChatSelected: (Long, String) -> Unit) {
     var conversations by remember { mutableStateOf<List<Conversation>>(emptyList()) }
     var showNewMessageDialog by remember { mutableStateOf(false) }
     var conversationToDelete by remember { mutableStateOf<Conversation?>(null) }
@@ -70,7 +70,7 @@ fun ConversationListScreen(context: Context, onChatSelected: (String) -> Unit) {
             items(conversations, key = { it.threadId }) { convo ->
                 ConversationItem(
                     conversation = convo,
-                    onClick = { onChatSelected(convo.address) },
+                    onClick = { onChatSelected(convo.threadId, convo.address) },
                     onLongClick = { conversationToDelete = convo }
                 )
             }
@@ -92,7 +92,12 @@ fun ConversationListScreen(context: Context, onChatSelected: (String) -> Unit) {
                     Button(onClick = {
                         showNewMessageDialog = false
                         if (newNumber.isNotBlank()) {
-                            onChatSelected(newNumber)
+                            scope.launch(Dispatchers.IO) {
+                                val threadId = Telephony.Threads.getOrCreateThreadId(context, newNumber)
+                                withContext(Dispatchers.Main) {
+                                    onChatSelected(threadId, newNumber)
+                                }
+                            }
                         }
                     }) {
                         Text("Chat")

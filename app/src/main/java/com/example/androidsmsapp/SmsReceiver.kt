@@ -17,7 +17,7 @@ class SmsReceiver : BroadcastReceiver() {
                 val values = ContentValues().apply {
                     put(Telephony.Sms.ADDRESS, message.displayOriginatingAddress)
                     put(Telephony.Sms.BODY, message.messageBody)
-                    put(Telephony.Sms.DATE, message.timestampMillis)
+                    put(Telephony.Sms.DATE, System.currentTimeMillis())
                     put(Telephony.Sms.READ, 0)
                     put(Telephony.Sms.TYPE, Telephony.Sms.MESSAGE_TYPE_INBOX)
                 }

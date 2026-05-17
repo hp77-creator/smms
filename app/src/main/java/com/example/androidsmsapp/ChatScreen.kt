@@ -18,15 +18,19 @@ import android.os.Handler
 import android.os.Looper
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.Alignment
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
-data class ChatMessage(val id: Long, val body: String, val isMe: Boolean)
+data class ChatMessage(val id: Long, val body: String, val isMe: Boolean, val timestamp: Long)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChatScreen(context: Context, address: String, onBack: () -> Unit) {
+fun ChatScreen(context: Context, threadId: Long, address: String, onBack: () -> Unit) {
     var messageText by remember { mutableStateOf("") }
     var messages by remember { mutableStateOf<List<ChatMessage>>(emptyList()) }
     var contactName by remember { mutableStateOf(address) }
@@ -53,8 +57,8 @@ fun ChatScreen(context: Context, address: String, onBack: () -> Unit) {
         }
     }
 
-    LaunchedEffect(address, messageText, refreshTrigger) {
-        messages = loadMessages(context, address)
+    LaunchedEffect(threadId, messageText, refreshTrigger) {
+        messages = loadMessages(context, threadId)
         withContext(Dispatchers.IO) {
             contactName = getContactName(context, address)
         }
@@ -85,17 +89,28 @@ fun ChatScreen(context: Context, address: String, onBack: () -> Unit) {
                 reverseLayout = true
             ) {
                 items(messages, key = { it.id }) { msg ->
-                    Text(
-                        text = (if (msg.isMe) "Me: " else "$contactName: ") + msg.body,
+                    val timeString = SimpleDateFormat("MMM dd, hh:mm a", Locale.getDefault()).format(Date(msg.timestamp))
+                    Column(
                         modifier = Modifier
+                            .fillMaxWidth()
                             .padding(vertical = 4.dp)
                             .pointerInput(msg.id) {
                                 detectTapGestures(
                                     onLongPress = { messageToDelete = msg }
                                 )
                             },
-                        color = if (msg.isMe) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
-                    )
+                        horizontalAlignment = if (msg.isMe) Alignment.End else Alignment.Start
+                    ) {
+                        Text(
+                            text = (if (msg.isMe) "Me: " else "$contactName: ") + msg.body,
+                            color = if (msg.isMe) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
+                        )
+                        Text(
+                            text = timeString,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
             
@@ -171,27 +186,29 @@ suspend fun deleteMessage(context: Context, messageId: Long) = withContext(Dispa
     )
 }
 
-suspend fun loadMessages(context: Context, targetAddress: String): List<ChatMessage> = withContext(Dispatchers.IO) {
+suspend fun loadMessages(context: Context, threadId: Long): List<ChatMessage> = withContext(Dispatchers.IO) {
     val list = mutableListOf<ChatMessage>()
     val cursor: Cursor? = context.contentResolver.query(
         Telephony.Sms.CONTENT_URI,
-        arrayOf(Telephony.Sms._ID, Telephony.Sms.BODY, Telephony.Sms.TYPE),
-        "${Telephony.Sms.ADDRESS} = ?",
-        arrayOf(targetAddress),
-        "${Telephony.Sms.DATE} DESC"
+        arrayOf(Telephony.Sms._ID, Telephony.Sms.BODY, Telephony.Sms.TYPE, Telephony.Sms.DATE),
+        "${Telephony.Sms.THREAD_ID} = ?",
+        arrayOf(threadId.toString()),
+        "${Telephony.Sms.DATE} DESC, ${Telephony.Sms._ID} DESC"
     )
 
     cursor?.use {
         val idIndex = it.getColumnIndexOrThrow(Telephony.Sms._ID)
         val bodyIndex = it.getColumnIndexOrThrow(Telephony.Sms.BODY)
         val typeIndex = it.getColumnIndexOrThrow(Telephony.Sms.TYPE)
+        val dateIndex = it.getColumnIndexOrThrow(Telephony.Sms.DATE)
         
         while (it.moveToNext()) {
             val id = it.getLong(idIndex)
             val body = it.getString(bodyIndex) ?: ""
             val type = it.getInt(typeIndex)
+            val date = it.getLong(dateIndex)
             val isMe = type == Telephony.Sms.MESSAGE_TYPE_SENT
-            list.add(ChatMessage(id, body, isMe))
+            list.add(ChatMessage(id, body, isMe, date))
         }
     }
     list
