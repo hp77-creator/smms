@@ -12,6 +12,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import android.net.Uri
 import android.database.ContentObserver
 import android.os.Handler
 import android.os.Looper
@@ -31,6 +34,24 @@ fun ConversationListScreen(context: Context, onChatSelected: (Long, String) -> U
     var conversationToDelete by remember { mutableStateOf<Conversation?>(null) }
     var refreshTrigger by remember { mutableStateOf(0) }
     val scope = rememberCoroutineScope()
+
+    val contactPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickContact()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            scope.launch(Dispatchers.IO) {
+                val phoneNumber = getPhoneNumberFromContactUri(context, uri)
+                if (phoneNumber != null) {
+                    val cleanNumber = phoneNumber.replace(Regex("[^0-9+]"), "")
+                    val threadId = Telephony.Threads.getOrCreateThreadId(context, cleanNumber)
+                    withContext(Dispatchers.Main) {
+                        showNewMessageDialog = false
+                        onChatSelected(threadId, cleanNumber)
+                    }
+                }
+            }
+        }
+    }
 
     DisposableEffect(context) {
         val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
@@ -80,13 +101,22 @@ fun ConversationListScreen(context: Context, onChatSelected: (Long, String) -> U
             var newNumber by remember { mutableStateOf("") }
             AlertDialog(
                 onDismissRequest = { showNewMessageDialog = false },
-                title = { Text("New Message") },
+                title = { Text("New Chat") },
                 text = {
-                    TextField(
-                        value = newNumber,
-                        onValueChange = { newNumber = it },
-                        placeholder = { Text("Phone number") }
-                    )
+                    Column {
+                        TextField(
+                            value = newNumber,
+                            onValueChange = { newNumber = it },
+                            placeholder = { Text("Phone number") }
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        OutlinedButton(
+                            onClick = { contactPickerLauncher.launch(null) },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Pick from Contacts")
+                        }
+                    }
                 },
                 confirmButton = {
                     Button(onClick = {
