@@ -12,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.activity.compose.BackHandler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -23,6 +24,8 @@ fun ChatScreen(context: Context, address: String, onBack: () -> Unit) {
     var messageText by remember { mutableStateOf("") }
     var messages by remember { mutableStateOf<List<ChatMessage>>(emptyList()) }
     val smsManager = context.getSystemService(SmsManager::class.java)
+
+    BackHandler { onBack() }
 
     LaunchedEffect(address, messageText) {
         messages = loadMessages(context, address)
