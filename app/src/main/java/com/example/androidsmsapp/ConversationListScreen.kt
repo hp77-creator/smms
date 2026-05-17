@@ -113,7 +113,7 @@ fun ConversationItem(conversation: Conversation, onClick: () -> Unit) {
 suspend fun loadConversations(context: Context): List<Conversation> = withContext(Dispatchers.IO) {
     val list = mutableListOf<Conversation>()
     val cursor: Cursor? = context.contentResolver.query(
-        Telephony.Sms.Inbox.CONTENT_URI,
+        Telephony.Sms.CONTENT_URI,
         arrayOf(Telephony.Sms.ADDRESS, Telephony.Sms.BODY),
         null,
         null,
