@@ -15,7 +15,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-data class Conversation(val address: String, val snippet: String)
+data class Conversation(val address: String, val snippet: String, val contactName: String)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -96,7 +96,7 @@ fun ConversationItem(conversation: Conversation, onClick: () -> Unit) {
                 .padding(16.dp)
         ) {
             Text(
-                text = conversation.address,
+                text = conversation.contactName,
                 style = MaterialTheme.typography.titleMedium
             )
             Spacer(modifier = Modifier.height(4.dp))
@@ -132,7 +132,8 @@ suspend fun loadConversations(context: Context): List<Conversation> = withContex
             val body = it.getString(bodyIndex) ?: ""
             if (!seenAddresses.contains(address)) {
                 seenAddresses.add(address)
-                list.add(Conversation(address, body))
+                val contactName = getContactName(context, address)
+                list.add(Conversation(address, body, contactName))
             }
         }
     }

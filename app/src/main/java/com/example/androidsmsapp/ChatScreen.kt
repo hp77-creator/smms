@@ -23,18 +23,22 @@ data class ChatMessage(val body: String, val isMe: Boolean)
 fun ChatScreen(context: Context, address: String, onBack: () -> Unit) {
     var messageText by remember { mutableStateOf("") }
     var messages by remember { mutableStateOf<List<ChatMessage>>(emptyList()) }
+    var contactName by remember { mutableStateOf(address) }
     val smsManager = context.getSystemService(SmsManager::class.java)
 
     BackHandler { onBack() }
 
     LaunchedEffect(address, messageText) {
         messages = loadMessages(context, address)
+        withContext(Dispatchers.IO) {
+            contactName = getContactName(context, address)
+        }
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(address) },
+                title = { Text(contactName) },
                 navigationIcon = {
                     Button(onClick = onBack) {
                         Text("Back")

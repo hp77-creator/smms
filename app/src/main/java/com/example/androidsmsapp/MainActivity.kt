@@ -15,6 +15,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.isGranted
+import com.google.accompanist.permissions.rememberPermissionState
 
 class MainActivity : ComponentActivity() {
 
@@ -29,6 +32,7 @@ class MainActivity : ComponentActivity() {
 
     private var isDefaultSmsApp by mutableStateOf(false)
 
+    @OptIn(ExperimentalPermissionsApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         checkDefaultSmsApp()
@@ -39,6 +43,13 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
+                    val contactsPermissionState = rememberPermissionState(android.Manifest.permission.READ_CONTACTS)
+                    LaunchedEffect(Unit) {
+                        if (!contactsPermissionState.status.isGranted) {
+                            contactsPermissionState.launchPermissionRequest()
+                        }
+                    }
+
                     if (isDefaultSmsApp) {
                         var currentChatAddress by remember { mutableStateOf<String?>(null) }
                         if (currentChatAddress == null) {
